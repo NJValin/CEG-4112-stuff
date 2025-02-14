@@ -1,57 +1,49 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.compose import ColumnTransformer
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from sklearn.pipeline import Pipeline
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.ensemble import RandomForestClassifier
 from datasets import load_dataset
 from icecream import ic
+import seaborn as sns
 import pandas as pd
 
-dataset = load_dataset("alfredodeza/wine-ratings", streaming=False, trust_remote_code=True)
-
+dataset = load_dataset("katossky/wine-recognition")
 df = pd.DataFrame(dataset['train'])
-df["year"] = df["name"].str.extract(r"(\d{4})$")
-df["year"] = pd.to_numeric(df["year"])
-df["year"] = df["year"].fillna(int(df["year"].mean()))
-df['name'] = df['name'].fillna("")
-df['notes'] = df['notes'].fillna("")
-df['region'] = df['region'].fillna("")
-print(df[df["name"] == "Avignonesi Vin Santo Occhio di Pernice (375ML half-bottle) 1999"])
-print("\n")
 print(df.head())
 
-
-X = df.drop(columns=['rating'])
-y = df['rating']
-seed = 42
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=seed)
-preprocess = ColumnTransformer([
-    ('name_process', TfidfVectorizer(), 'name'),
-    ('notes_process', TfidfVectorizer(), 'notes'),
-    ('region_process', TfidfVectorizer(), 'region'),
-    ('year', StandardScaler(), ['year']),
-    ('variety', OneHotEncoder(handle_unknown="ignore"), ['variety']),
-], remainder='passthrough')
+X = df.drop(columns=["label"])
+y = df["label"].values
 
 
-pipeline = Pipeline([
-    ("preprocessor", preprocess),
-    ('regressor', LinearRegression())
-])
+X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.25, random_state=12)
+
+#model = SVC(kernel='rbf', gamma='scale')
+model = RandomForestClassifier(max_depth=2)
+model.fit(X_train, y_train)
+
+y_pred = model.predict(X_test)
 
 
 
-pipeline.fit(X_train, y_train)
+importances = model.feature_importances_
+features = X.columns
+plt.figure(figsize=(10, 5))
+plt.barh(features, importances, color="green")
+plt.xlabel("Importance Score")
+plt.title("Feature Importance (Random Forest)")
+plt.show()
 
-y_pred = pipeline.predict(X_test)
+cm = confusion_matrix(y_test, y_pred)
 
-y_pred = np.round(y_pred)
-ic(y_pred)
-ic(type(y_pred))
+# Display confusion matrix using pandas
+cm_df = pd.DataFrame(cm, index=["Actual 1", "Actual 2", "Actual 3"], columns=["Predicted 1", "Predicted 2", "Predicted 3"])
+plt.figure(figsize=(6, 4))
+sns.heatmap(cm_df, annot=True, cmap="Blues", fmt="d")
+plt.title("Confusion Matrix")
+plt.show()
 
 print("Accuracy:", accuracy_score(y_test, y_pred))
 print("\nClassification Report:\n", classification_report(y_test, y_pred))
+# Plot data points
