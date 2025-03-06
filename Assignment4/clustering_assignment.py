@@ -5,15 +5,16 @@ from sklearn.metrics import accuracy_score
 from sklearn.cluster import KMeans, DBSCAN
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.decomposition import PCA
 import time
 
 def preprocess(X : pd.DataFrame, y : pd.DataFrame):
-    #minmax = MaxAbsScaler()
+    #minmax = StandardScaler()
     reducer = PCA(n_components=2)
     encoder = LabelEncoder()
     X["explicit"] = X["explicit"].astype(int)
+    #X_transformed = minmax.fit_transform(X)
     y_transformed = encoder.fit_transform(y)
     #X_tr = minmax.fit_transform(X_transformed)
     print(time.time())
@@ -59,10 +60,10 @@ if __name__=='__main__':
     print(f"post preprocess {time.time()-time_start}")
 
     visualize_data(X, y)
-    kmeans = KMeans(n_clusters=6, init='k-means++', max_iter=300, random_state=0)
+    kmeans = KMeans(n_clusters=6, init='k-means++', max_iter=300, random_state=42)
     y_kmeans = kmeans.fit_predict(X)
     centres = kmeans.cluster_centers_
-    #dbs = DBSCAN(eps=0.001, min_samples=50, n_jobs=-1)
+    #dbs = DBSCAN(eps=0.5, min_samples=5)
     #y_db = dbs.fit_predict(X)
     visualize_data(X,y_kmeans, centres)
 
