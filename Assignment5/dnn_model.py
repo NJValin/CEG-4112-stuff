@@ -47,7 +47,7 @@ def preprocess(X, y, split_name="train"):
     y_tensor = torch.tensor(y, dtype=torch.float32)  # Ensure float labels
 
     # Save processed data for future use
-    #torch.save({"X": X_tensor, "y": y_tensor}, save_path)
+    torch.save({"X": X_tensor, "y": y_tensor}, save_path)
     print(f"Saved preprocessed data to {save_path}")
 
     return X_tensor, y_tensor
@@ -81,29 +81,33 @@ class TextDataset(Dataset):
 class NeuralNetwork(nn.Module):
     def __init__(self)->None:
         super().__init__()
-        self.flatten = nn.Flatten()
         self.linear_relu_stack = nn.Sequential(
-            nn.Linear(512, 256),
+            nn.Linear(512, 700),
+            nn.LayerNorm(700),
             nn.Dropout(p=0.3),
-            nn.BatchNorm1d(256),
             nn.ReLU(),
-            nn.Linear(256,256),
+            nn.Linear(700, 700),
+            nn.LayerNorm(700),
             nn.Dropout(p=0.3),
-            nn.BatchNorm1d(256),
             nn.ReLU(),
-            nn.Linear(256, 128),
+            nn.Linear(700, 700),
+            nn.LayerNorm(700),
             nn.Dropout(p=0.3),
-            nn.BatchNorm1d(128),
             nn.ReLU(),
-            nn.Linear(128, 128),
+            nn.Linear(700, 512),
+            nn.LayerNorm(512),
             nn.Dropout(p=0.3),
-            nn.BatchNorm1d(128),
             nn.ReLU(),
-            nn.Linear(128,1)
+            nn.Linear(512, 128),
+            nn.Dropout(p=0.3),
+            nn.ReLU(),
+            nn.Linear(128, 64),
+            nn.Dropout(p=0.3),
+            nn.ReLU(),
+            nn.Linear(64,1)
         )
 
     def forward(self, X):
-        X = self.flatten(X)
         logits = self.linear_relu_stack(X)
         return logits
 
@@ -138,8 +142,8 @@ def validate(dataloader, model, loss_func):
             y_pred = model(X).squeeze(1)
             test_loss += loss_func(y_pred, y).item()
             correct += ((torch.sigmoid(y_pred) > 0.5).float() == y).sum().item()
-    test_loss = test_loss / num_batches
-    correct = correct / size
+    test_loss /= num_batches
+    correct /= size
     print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
     return test_loss
 
@@ -162,8 +166,8 @@ def test(X, y, model):
 if __name__=='__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    batch_size = 64
-    learning_rate = 5e-4
+    batch_size = 1
+    learning_rate = 1e-5
 
     ds_train = load_dataset("imdb", split="train")
     X_train, y_train = preprocess(ds_train["text"], ds_train["label"], "train")
@@ -183,15 +187,11 @@ if __name__=='__main__':
 
     model = NeuralNetwork().to(device)
     try:
-        try:
-            model.load_state_dict(torch.load("best_model.pt", weights_only=True))
-        except Exception as e:
-            model.load_state_dict(torch.load("model.pth", weights_only=True))
+        model.load_state_dict(torch.load("model.pth", weights_only=True))
         print("Success")
     except Exception as e:
         print("\n\npth file cannot be found at ./model.pth\n\n")
         model.apply(init_weights)
-        print(e)
 
     loss_func = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
@@ -199,24 +199,14 @@ if __name__=='__main__':
 
 
     best_val_loss = float('inf')
-    patience = 25
+    patience = 75
     patience_counter = 0
 
-    epochs = 150
+    epochs = 100
     for t in range(epochs):
         print(f"Epoch {t+1}\n--------------------------------------------")
         train(train_dataloader, model, loss_func, optimizer)
-        val_loss = validate(valid_dataloader, model, loss_func)
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            torch.save(model.state_dict(), 'best_model.pt')
-            patience_counter = 0
-        else:
-            patience_counter += 1
-
-        if patience_counter > patience:
-            print(f"Stopping early at Epoch {t+1}")
-            break
+        validate(valid_dataloader, model, loss_func)
 
 
 
