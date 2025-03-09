@@ -187,10 +187,10 @@ if __name__=='__main__':
 
     model = NeuralNetwork().to(device)
     try:
-        model.load_state_dict(torch.load("model.pth", weights_only=True))
+        model.load_state_dict(torch.load("mnist_model.pth", weights_only=True))
         print("Success")
     except Exception as e:
-        print("\n\npth file cannot be found at ./model.pth\n\n")
+        print("\n\npth file cannot be found at ./mnist_model.pth\n\n")
         model.apply(init_weights)
 
     loss_func = nn.BCEWithLogitsLoss()
